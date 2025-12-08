@@ -1,3 +1,3 @@
 ___
-# Federated Learning Approaches for Privacy-Preserving Network Anomaly Detection
+# Backdoor-Resilient Federated Learning for Network Intrusion Detection Systems
 ___
