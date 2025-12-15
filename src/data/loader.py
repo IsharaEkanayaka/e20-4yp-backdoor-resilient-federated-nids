@@ -15,7 +15,7 @@ def load_dataset(path=PROCESSED_DATA_PATH):
         raise FileNotFoundError(f"❌ Data file not found at {path}. Run src.data.preprocess first!")
 
     print(f"📂 Loading data from {path}...")
-    data = torch.load(path)
+    data = torch.load(path, weights_only=True)
     
     X = data['X']
     y = data['y']
