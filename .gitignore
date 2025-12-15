@@ -1,6 +1,7 @@
 /data/
 __pycache__/
 *.pth
+/outputs/
 
 #secret keys
 .env
