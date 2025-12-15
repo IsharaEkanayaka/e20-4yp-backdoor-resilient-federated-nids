@@ -2,3 +2,9 @@
 __pycache__/
 *.pth
 /outputs/
+
+#secret keys
+.env
+
+#w&b
+wandb/

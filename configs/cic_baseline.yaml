@@ -1,0 +1,8 @@
+defaults:
+  - baseline # Inherit settings from baseline
+
+client:
+  batch_size: 1024  
+  lr: 0.05          # Slightly higher LR is often needed for large batches
+data:
+  path: "data/cic-ids-2017/processed/train_pool.pt"
