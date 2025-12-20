@@ -2,14 +2,14 @@ defaults:
   - _self_
 
 simulation:
-  rounds: 20
-  n_clients: 10
+  rounds: 4    #20
+  n_clients: 3     #10
   fraction: 1.0
   partition_method: "iid"
   alpha: 0.5
 
 client:
-  epochs: 10
+  epochs: 1    #10
   lr: 0.01
   batch_size: 32
   device: "cuda"  # Change to "cuda" if you have GPU
@@ -22,7 +22,7 @@ data:
 
 #😈 RED TEAM SECTION
 attack:
-  type: "clean"   # Options: clean, backdoor, label_flip
+  type: "backdoor"   # Options: clean, backdoor, label_flip
   poison_ratio: 0.3
   trigger_feat_idx: 0
   trigger_value: 5.0

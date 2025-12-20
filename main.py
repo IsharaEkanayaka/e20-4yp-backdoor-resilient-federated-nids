@@ -18,8 +18,8 @@ def main(cfg: DictConfig):
     print(f"🚀 Starting Experiment: {cfg.simulation.partition_method} Partition")
     print(OmegaConf.to_yaml(cfg))
 
-    # 0. INITIALIZE LOGGER
-    logger = Logger(cfg, project_name="fl-nids-optimization")
+    # 🛡️ 0. INITIALIZE LOGGER
+    logger = Logger(cfg, project_name="e20-4yp-backdoor-resilient-federated-nids")
 
     if wandb.run:
         # If wandb has overridden params, update our Hydra config 'cfg'
@@ -141,13 +141,20 @@ def main(cfg: DictConfig):
         # E. LOGGING (Using the helper class)
         # We can calculate an average training loss for the log if we want
         avg_loss = sum([c[2] for c in client_updates]) / len(client_updates)
-        
+
+        # Log experiment metrics to Weights & Biases (W&B)
         logger.log_metrics(
-            round_id=round_id + 1, 
-            accuracy=acc, 
-            loss=avg_loss,
-            extra_metrics={"best_accuracy": max(best_acc, acc)}
+            metrics={
+                "round": round_id + 1,              # Current federated learning round
+                "accuracy": acc,                    # Global model accuracy on clean test data
+                "loss": avg_loss,                   # Average client training loss in this round
+                "best_accuracy": max(best_acc, acc),# Best global accuracy observed so far
+                "backdoor_asr": asr                 # Backdoor Attack Success Rate (security metric)
+            },
+            step=round_id + 1                       # X-axis for W&B plots (FL round)
         )
+
+
         
         best_acc = max(best_acc, acc)
 
