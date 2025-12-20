@@ -2,6 +2,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import torch
 import numpy as np
+import wandb
 
 # Import our custom modules
 from src.data.loader import load_dataset, get_data_loaders
@@ -9,12 +10,25 @@ from src.data.partition import partition_data
 from src.client.client import Client
 from src.client.model import Net
 from src.server.server import Server
+from src.utils.logger import Logger
 
 # Ensure your Hydra config path is correct relative to where you run this!
 @hydra.main(config_path="configs", config_name="baseline", version_base=None)
 def main(cfg: DictConfig):
     print(f"🚀 Starting Experiment: {cfg.simulation.partition_method} Partition")
     print(OmegaConf.to_yaml(cfg))
+
+    # 🛡️ 0. INITIALIZE LOGGER
+    logger = Logger(cfg, project_name="e20-4yp-backdoor-resilient-federated-nids")
+
+    if wandb.run:
+        # If wandb has overridden params, update our Hydra config 'cfg'
+        if wandb.config.get('client.lr'):
+            cfg.client.lr = wandb.config['client.lr']
+        if wandb.config.get('client.batch_size'):
+            cfg.client.batch_size = wandb.config['client.batch_size']
+        if wandb.config.get('client.epochs'):
+            cfg.client.epochs = wandb.config['client.epochs']
 
     # 1. SETUP DATA
     # Load the big pool
@@ -76,6 +90,8 @@ def main(cfg: DictConfig):
         )
         clients.append(client)
 
+    best_acc = 0.0
+
     # 3. FEDERATED LEARNING LOOP
     print("\n🔄 Starting FL Loop...")
     for round_id in range(cfg.simulation.rounds):
@@ -122,7 +138,30 @@ def main(cfg: DictConfig):
         print(f"📊 Round {round_id+1} | Accuracy: {acc:.2f}% | 😈 Backdoor ASR: {asr:.2f}%")
         print(f"📊 Global Accuracy: {acc:.2f}%")
 
+        # E. LOGGING (Using the helper class)
+        # We can calculate an average training loss for the log if we want
+        avg_loss = sum([c[2] for c in client_updates]) / len(client_updates)
+
+        # Log experiment metrics to Weights & Biases (W&B)
+        logger.log_metrics(
+            metrics={
+                "round": round_id + 1,              # Current federated learning round
+                "accuracy": acc,                    # Global model accuracy on clean test data
+                "loss": avg_loss,                   # Average client training loss in this round
+                "best_accuracy": max(best_acc, acc),# Best global accuracy observed so far
+                "backdoor_asr": asr                 # Backdoor Attack Success Rate (security metric)
+            },
+            step=round_id + 1                       # X-axis for W&B plots (FL round)
+        )
+
+
+        
+        best_acc = max(best_acc, acc)
+
     print("\n✅ Experiment Complete!")
+
+    # 6. FINISH RUN
+    logger.finish()
 
 if __name__ == "__main__":
     main()
