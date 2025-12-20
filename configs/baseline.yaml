@@ -2,8 +2,8 @@ defaults:
   - _self_
 
 simulation:
-  rounds: 4    #20
-  n_clients: 3     #10
+  rounds: 20 
+  n_clients: 10
   fraction: 1.0
   partition_method: "iid"
   alpha: 0.5

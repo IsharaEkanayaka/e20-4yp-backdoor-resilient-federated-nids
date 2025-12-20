@@ -149,12 +149,10 @@ def main(cfg: DictConfig):
                 "accuracy": acc,                    # Global model accuracy on clean test data
                 "loss": avg_loss,                   # Average client training loss in this round
                 "best_accuracy": max(best_acc, acc),# Best global accuracy observed so far
-                "backdoor_asr": asr                 # Backdoor Attack Success Rate (security metric)
+                "backdoor_asr": asr                 # Backdoor Attack Success Rate, Red Team Metric (The Attack) 🚨
             },
             step=round_id + 1                       # X-axis for W&B plots (FL round)
         )
-
-
         
         best_acc = max(best_acc, acc)
 

@@ -1,12 +1,19 @@
+# This file defines the hyperparameters to be tuned during the W&B sweep.
+# All other hyperparameters remain fixed as defined in baseline.yaml to ensure
+# a fair and unbiased comparison across sweep runs.
+# If you want to change other hyperparameters, please refer "baseline.yaml".
+
 program: main.py
 method: bayes  # Uses previous results to guess better params next
 metric:
-  name: global_accuracy
+  name: accuracy
   goal: maximize
 
 parameters:
+
   # The values we want to tune
   client.lr:
+    distribution: log_uniform_values    # Log Uniform distribution. This forces the agent to explore orders of magnitude (0.0001, 0.001, 0.01, 0.1) evenly.
     min: 0.0001
     max: 0.1
   
@@ -18,6 +25,10 @@ parameters:
   
   server.defense:
     value: "avg"  # Keep constant for now
+
+  # VARY the Data Distribution
+  # simulation.alpha:
+  #   values: [0.5, 100.0]          # Non-IID vs IID
 
 # Command tells WandB how to run your script and pass arguments
 command:
