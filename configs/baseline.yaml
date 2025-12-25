@@ -3,7 +3,7 @@ defaults:
 
 simulation:
   rounds: 20 
-  n_clients: 10
+  n_clients: 40
   fraction: 1.0
   partition_method: "iid"
   alpha: 0.5
@@ -15,7 +15,8 @@ client:
   device: "cuda"  # Change to "cuda" if you have GPU
 
 server:
-  defense: "avg"   # "avg", "median", "krum"
+  defense: "krum"   # "avg", "median", "trimmed_mean", "krum"
+                    # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
 
 data:
   path: "data/unsw-nb15/processed/train_pool.pt"
