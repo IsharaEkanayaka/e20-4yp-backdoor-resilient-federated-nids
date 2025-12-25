@@ -3,9 +3,14 @@ import wandb
 from omegaconf import OmegaConf
 
 class Logger:
-    def __init__(self, cfg, project_name="fl-nids-optimization"):
+    def __init__(self, cfg, group_name=None, tags=None, project_name="fl-nids-optimization"):
         """
         Initializes the W&B run using the Hydra config.
+        Args:
+            cfg: The Hydra configuration object.
+            project_name: Name of the W&B project.
+            group_name: (Optional) Group name for grouping multiple runs (e.g., 'exp1_baseline').
+            tags: (Optional) List of strings to tag the run (e.g., ['backdoor', 'alpha_0.5']).
         """
         # Convert Hydra config to standard Python dict for W&B
         config_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
@@ -20,7 +25,9 @@ class Logger:
             project=project_name,
             config=config_dict,
             reinit=True,
-            mode="online"  # Change to "disabled" for debugging without internet
+            mode="online" , # Change to "disabled" for debugging without internet
+            group=group_name,
+            tags=tags   
         )
 
     def log_metrics(self, metrics, step=None):

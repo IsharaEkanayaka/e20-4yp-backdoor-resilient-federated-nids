@@ -16,10 +16,19 @@ from src.utils.logger import Logger
 @hydra.main(config_path="configs", config_name="baseline", version_base=None)
 def main(cfg: DictConfig):
     print(f"🚀 Starting Experiment: {cfg.simulation.partition_method} Partition")
+
+    # Check if a group is defined (e.g. from command line +group=exp1)
+    # If not found, default to 'default'
+    wandb_group = cfg.get("group", "default")
+    print(f"📊 W&B Group: {wandb_group}")
     print(OmegaConf.to_yaml(cfg))
 
     # 🛡️ 0. INITIALIZE LOGGER
-    logger = Logger(cfg, project_name="e20-4yp-backdoor-resilient-federated-nids")
+    logger = Logger(
+        cfg, 
+        group_name= wandb_group,
+        project_name="e20-4yp-backdoor-resilient-federated-nids",
+        )
 
     if wandb.run:
         # If wandb has overridden params, update our Hydra config 'cfg'
@@ -84,6 +93,7 @@ def main(cfg: DictConfig):
             indices=client_indices[cid],
             model=global_model,
             config=cfg,  # <--- PASS THE FULL CONFIG HERE
+            lr=cfg.client.lr,
             device=cfg.client.device,
             is_malicious=is_malicious # <--- PASS THE FLAG
         )
@@ -124,28 +134,21 @@ def main(cfg: DictConfig):
         server.aggregate(client_updates)
         
         # D. Evaluation Phase
-        # Unpack both Accuracy and F1-Score
-        acc, f1 = server.evaluate()
+        # Check how smart the global model has become
+        acc,f1_score = server.evaluate()
+        # 🆕 NEW: Check how successful the attack is
+        asr = server.test_attack_efficacy(cfg.attack)
         
-        # Check how successful the backdoor is
-        asr = server.test_backdoor(cfg.attack)
-        
-        # Print F1 Score
-        print(f"📊 Round {round_id+1} | Acc: {acc:.2f}% | F1: {f1:.2f}% | 😈 ASR: {asr:.2f}%")
+        print(f"📊 Round {round_id+1} | Accuracy: {acc:.2f}% | F1-score:{f1_score:.2f} | 😈 Backdoor ASR: {asr:.2f}%")
+        print(f"📊 Global Accuracy: {acc:.2f}%")
 
         # E. LOGGING (Using the helper class)
-        avg_loss = sum([c[2] for c in client_updates]) / len(client_updates)
-        best_acc = max(best_acc, acc)
-
         # Log experiment metrics to Weights & Biases (W&B)
         logger.log_metrics(
             metrics={
-                "round": round_id + 1,
-                "accuracy": acc,
-                "f1_score": f1,              
-                "loss": avg_loss,
-                "best_accuracy": best_acc,
-                "backdoor_asr": asr
+                "Accuracy": acc,                    # Global model accuracy on clean test data
+                "f1-score": f1_score,
+                "ASR": asr                 # Attack Success Rate, Red Team Metric (The Attack) 🚨
             },
             step=round_id + 1
         )

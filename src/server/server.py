@@ -46,6 +46,10 @@ class Server:
         Calculates Standard Accuracy AND Macro F1-Score
         """
         self.global_model.eval()
+        # We need to store ALL predictions to calculate F1 correctly
+        all_preds = []
+        all_targets = []
+
         correct = 0
         total = 0
         
@@ -58,61 +62,91 @@ class Server:
                 X, y = X.to(self.device), y.to(self.device)
                 outputs = self.global_model(X)
                 _, predicted = torch.max(outputs.data, 1)
-                
+                # Update Accuracy stats
                 total += y.size(0)
                 correct += (predicted == y).sum().item()
-                
-                # Move to CPU for scikit-learn
-                all_targets.extend(y.cpu().numpy())
+                # Store for F1 Score
                 all_preds.extend(predicted.cpu().numpy())
+                all_targets.extend(y.cpu().numpy())
         
         accuracy = 100 * correct / total
-        
-        # Calculate F1 (Macro average gives equal weight to all classes)
-        # 0 division handling helps if a class is never predicted
-        f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0) * 100
-        
-        return accuracy, f1  # 👈 Now returns TWO values
+        # Calculate Macro F1 (treats all classes equally, critical for NIDS)
+        f1 = f1_score(all_targets, all_preds, average='macro') 
+        return accuracy, f1
 
-    def test_backdoor(self, attack_config):
+    def test_attack_efficacy(self, attack_config):
         """
-        Calculates Attack Success Rate (ASR).
+        Calculates Attack Success Rate (ASR) for the active attack type.
+        Supports:
+          - Backdoor: Injects trigger into non-target samples -> Checks for target label.
+          - Label Flip: Takes clean source samples -> Checks for target label.
         """
-        if attack_config is None or attack_config.get('type') == 'clean':
+        if attack_config is None:
+            return 0.0
+            
+        # 1. Unpack Attack Type
+        try:
+            atype = attack_config.type
+        except AttributeError:
+            atype = attack_config.get('type', 'clean')
+
+        if atype == 'clean':
             return 0.0
 
         self.global_model.eval()
         success_count = 0
         total_count = 0
         
+        # Unpack Common Parameters
         try:
+            # Backdoor
             target = attack_config.target_label
             feat_idx = attack_config.trigger_feat_idx
             trig_val = attack_config.trigger_value
+            # Label Flip
+            source_label = attack_config.source_label
+            flip_to = attack_config.flip_to_label
         except AttributeError:
             target = attack_config.get('target_label')
             feat_idx = attack_config.get('trigger_feat_idx')
             trig_val = attack_config.get('trigger_value')
+            source_label = attack_config.get('source_label')
+            flip_to = attack_config.get('flip_to_label')
 
         with torch.no_grad():
             for X, y in self.test_loader:
                 X, y = X.to(self.device), y.to(self.device)
                 
-                # Filter: Only evaluate on samples that are NOT already the target.
-                mask = (y != target)
-                if mask.sum() == 0:
-                    continue
-                
-                X_victim = X[mask].clone()
-                X_victim[:, feat_idx] = trig_val
-                
+                # --- STRATEGY SWITCH ---
+                if atype == 'backdoor':
+                    # Backdoor Logic
+                    mask = (y != target)
+                    if mask.sum() == 0: continue
+                    
+                    X_victim = X[mask].clone()
+                    if feat_idx is not None:
+                        X_victim[:, feat_idx] = trig_val
+                    
+                    target_class = target
+
+                elif atype == 'label_flip':
+                    # Label Flip Logic
+                    mask = (y == source_label)
+                    if mask.sum() == 0: continue
+                    
+                    X_victim = X[mask].clone()
+                    target_class = flip_to
+
+                else:
+                    return 0.0
+
+                # --- COMMON EVALUATION ---
                 outputs = self.global_model(X_victim)
                 _, predicted = torch.max(outputs.data, 1)
                 
-                success_count += (predicted == target).sum().item()
+                success_count += (predicted == target_class).sum().item()
                 total_count += X_victim.size(0)
         
         if total_count == 0: return 0.0
-        
         asr = 100 * success_count / total_count
         return asr
