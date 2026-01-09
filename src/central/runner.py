@@ -7,6 +7,7 @@ import numpy as np
 import os
 from sklearn.metrics import classification_report, f1_score
 from src.client.model import Net
+from src.utils.logger import Logger
 
 def get_class_weights(y_tensor, device):
     """Calculates Inverse Frequency Weights to fix imbalance."""
@@ -28,6 +29,13 @@ def get_class_weights(y_tensor, device):
 def main(cfg: DictConfig):
     print(f"🚀 Starting Experiment: {cfg.name}")
     print(f"⚙️ Config:\n{OmegaConf.to_yaml(cfg)}")
+
+    logger = Logger(
+        cfg=cfg,
+        project_name=cfg.wandb.project,
+        group_name=cfg.wandb.group,
+        tags=cfg.wandb.tags
+    )
     
     # 1. Setup Device
     device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
@@ -41,7 +49,7 @@ def main(cfg: DictConfig):
         raise FileNotFoundError(f"❌ Data not found at {abs_data_path}")
         
     print(f"📂 Loading data from: {abs_data_path}")
-    data = torch.load(abs_data_path)
+    data = torch.load(abs_data_path, weights_only=False)
     X_train_full, y_train_full = data['X'], data['y']
     
     # Verify Dimensions
@@ -119,10 +127,17 @@ def main(cfg: DictConfig):
             # You could save the best model here if needed
             # torch.save(model.state_dict(), "best_central_model.pt")
 
+        logger.log_metrics({
+            "train/loss": avg_loss,
+            "val/macro_f1": macro_f1,
+            "epoch": epoch + 1
+        }, step=epoch + 1)
+
     # 7. Final Report
     print(f"\n✅ Finished {cfg.name}")
     print("Final Classification Report (Validation Set):")
     print(classification_report(labels, preds, zero_division=0))
+    logger.finish()
 
 if __name__ == "__main__":
     main()

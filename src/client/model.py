@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Net(nn.Module):
-    def __init__(self, input_dim=72, num_classes=10):
+    def __init__(self, input_dim=82, num_classes=11):
         super(Net, self).__init__()
         
         # 4-Layer DNN (Deep Neural Network)

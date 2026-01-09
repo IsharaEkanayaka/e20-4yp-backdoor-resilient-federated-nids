@@ -1,16 +1,13 @@
-# configs/centralized/m1_baseline.yaml
+# configs/central/m1_baseline.yaml
 
-# Experiment Metadata
-name: "M1_Baseline_UNSW_Raw"
-project: "NIDS_Centralized"
-
+name : "Centralized_M1_Baseline_UNSW"
 # Data Settings (Points to your UNSW-NB15 processed data)
 # NOTE: Ensure this path matches exactly where your .pt files are
 data_path: "data/unsw-nb15/processed/train_pool.pt"
 
 # Model Hyperparameters (Matches your Net class)
-input_dim: 71
-num_classes: 10  
+input_dim: 82
+num_classes: 11  
 hidden_sizes: [128, 64, 32] # Implicitly defined in your Net class, just for logging info
 dropout: 0.2
 
@@ -23,3 +20,8 @@ device: "cuda"
 # --- MILESTONE SWITCHES ---
 # Milestone 1 is the "Truthful Baseline" (No tricks)
 use_class_weights: false
+
+wandb:
+  project: "e20-4yp-backdoor-resilient-federated-nids"
+  group : "central_m1_mlp_baseline"
+  tags: []        # Will be filled by CLI
