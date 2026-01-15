@@ -2,13 +2,19 @@ import pandas as pd
 import numpy as np
 import torch
 import os
+from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
 # --- CONFIGURATION ---
-RAW_TRAIN_PATH = "data/unsw-nb15/raw/UNSW_NB15_training-set.csv"
-RAW_TEST_PATH = "data/unsw-nb15/raw/UNSW_NB15_testing-set.csv"
-PROCESSED_DIR = "data/unsw-nb15/processed"
+# Resolve paths relative to the repository root, not the process CWD.
+# This makes it work consistently from scripts, notebooks, and different launch dirs.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RAW_DIR = REPO_ROOT / "data" / "unsw-nb15" / "raw"
+PROCESSED_DIR = REPO_ROOT / "data" / "unsw-nb15" / "processed"
+
+RAW_TRAIN_PATH = RAW_DIR / "UNSW_NB15_training-set.csv"
+RAW_TEST_PATH = RAW_DIR / "UNSW_NB15_testing-set.csv"
 
 # Features that follow a Power Law (huge range) and need Log transform
 LOG_COLS = ['dur', 'sbytes', 'dbytes', 'Sload', 'Dload', 'Spkts', 'Dpkts']
@@ -20,7 +26,21 @@ def clean_and_process():
     print("🚀 Starting Data Preprocessing Pipeline...")
 
     # 1. LOAD & MERGE
-    print(f"   📂 Loading raw files from {os.path.dirname(RAW_TRAIN_PATH)}...")
+    print(f"   📂 Loading raw files from {RAW_DIR}...")
+
+    if not RAW_TRAIN_PATH.exists() or not RAW_TEST_PATH.exists():
+        available = []
+        if RAW_DIR.exists():
+            available = sorted([p.name for p in RAW_DIR.iterdir() if p.is_file()])
+        raise FileNotFoundError(
+            "Missing UNSW-NB15 raw CSVs. Expected:\n"
+            f"- {RAW_TRAIN_PATH}\n"
+            f"- {RAW_TEST_PATH}\n\n"
+            f"Raw directory: {RAW_DIR} (exists={RAW_DIR.exists()})\n"
+            f"Available files: {available}\n\n"
+            "If you haven't downloaded/extracted the dataset yet, place the CSVs in data/unsw-nb15/raw/."
+        )
+
     df1 = pd.read_csv(RAW_TRAIN_PATH)
     df2 = pd.read_csv(RAW_TEST_PATH)
     
@@ -130,8 +150,8 @@ def clean_and_process():
     }
 
     os.makedirs(PROCESSED_DIR, exist_ok=True)
-    torch.save(train_payload, f"{PROCESSED_DIR}/train_pool.pt")
-    torch.save(test_payload, f"{PROCESSED_DIR}/global_test.pt")
+    torch.save(train_payload, str(PROCESSED_DIR / "train_pool.pt"))
+    torch.save(test_payload, str(PROCESSED_DIR / "global_test.pt"))
     
     print(f"   ✅ Done! ")
 
