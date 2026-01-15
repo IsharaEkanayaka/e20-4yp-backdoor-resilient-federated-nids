@@ -9,12 +9,17 @@ dependencies:
   - python=3.10          
   - pytorch        
   - pytorch-cuda=11.8    
-  - numpy
+  - numpy<2.2
   - pandas
   - scikit-learn
+  - scipy
   - matplotlib
   - seaborn
   - tqdm             # Progress bars
+  - numba
+  - llvmlite
+  - pynndescent
+  - umap-learn
   - pip                  
 
   # 2. The Python Libraries (Installed via pip inside conda)
