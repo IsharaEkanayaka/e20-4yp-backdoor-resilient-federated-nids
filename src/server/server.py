@@ -1,6 +1,6 @@
 import torch
 from sklearn.metrics import f1_score
-from .aggregation import fed_avg, fed_median, fed_trimmed_mean, fed_krum
+from .aggregation import fed_avg, fed_median, fed_trimmed_mean, fed_krum, fed_multi_krum
 
 class Server:
     def __init__(self, global_model, test_loader, device='cpu', defense='avg', expected_malicious=0):
@@ -17,8 +17,11 @@ class Server:
         """
         # Separate weights from the tuples for the robust functions
         weights_list = [update[0] for update in client_updates]
+
+        # Define n_clients HERE (Top Level)
+        n_clients = len(weights_list)
         
-        print(f"🛡️ Aggregating updates using defense: '{self.defense}'")
+        print(f"🛡️ Aggregating {n_clients} updates using defense: '{self.defense}'")
 
         if self.defense == "avg":
             new_weights = fed_avg(client_updates)
@@ -40,6 +43,13 @@ class Server:
             # Ensure f >= 1 if Krum is selected, otherwise it crashes
             f = max(1, self.expected_malicious)
             new_weights = fed_krum(weights_list, n_malicious=f)
+
+        elif self.defense == "multi_krum":
+            # Multi-Krum: Selects top 'm' clients and averages them
+            # Heuristic: Assume <30% attackers (f), select the remaining 70% (m)
+            f = max(1, int(n_clients * 0.5))
+            m = n_clients - f
+            new_weights = fed_multi_krum(weights_list, f=f, m=m)
         
         else:
             print(f"⚠️ Unknown defense '{self.defense}', falling back to FedAvg.")

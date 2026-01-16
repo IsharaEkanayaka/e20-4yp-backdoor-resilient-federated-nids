@@ -21,7 +21,7 @@ client:
   early_stopping_patience: 3  # Keep for safety, but unlikely to trigger with 5 epochs
 
 server:
-  defense: "avg"   # "avg", "median", "trimmed_mean", "krum"
+  defense: "multi_krum"   # "avg", "median", "trimmed_mean", "krum", "multi_krum"
                     # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
 
 data:
@@ -29,7 +29,7 @@ data:
 
 #😈 RED TEAM SECTION
 attack:
-  type: "clean"   # Options: clean, backdoor, label_flip
+  type: "backdoor"   # Options: clean, backdoor, label_flip
   poison_ratio: 0.3
   trigger_feat_idx: 0
   trigger_value: 5.0

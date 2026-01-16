@@ -111,3 +111,51 @@ def fed_krum(weights_list, n_malicious=1):
     best_client_idx = np.argmin(scores)
     
     return weights_list[best_client_idx]
+
+
+def fed_multi_krum(weights_list, f, m=None):
+    """
+    Multi-Krum: Selects 'm' best clients and averages them.
+    Args:
+        f (int): Number of estimated attackers.
+        m (int): Number of clients to aggregate (Default: n - f)
+    """
+    n_clients = len(weights_list)
+    k = max(1, n_clients - f - 2)
+    
+    # Default m: Select all valid clients we think are honest
+    if m is None:
+        m = n_clients - f
+
+    # 1. Flatten updates (Same as Krum)
+    flat_updates = []
+    for w in weights_list:
+        concat_list = []
+        for key in sorted(w.keys()):
+            concat_list.append(w[key].view(-1).float())
+        flat_updates.append(torch.cat(concat_list))
+        
+    # 2. Pairwise Distances (Same as Krum)
+    scores = []
+    for i in range(n_clients):
+        dists = []
+        for j in range(n_clients):
+            if i == j: continue
+            d = torch.norm(flat_updates[i] - flat_updates[j]).item()
+            dists.append(d)
+        dists.sort()
+        score = sum(dists[:k])
+        scores.append(score)
+        
+    # 3. SELECT TOP 'm' (Lowest scores) - This is the "Multi" part
+    # Returns indices of the smallest 'm' scores
+    best_indices = np.argsort(scores)[:m]
+    
+    print(f"   -> Multi-Krum selected {len(best_indices)} clients: {best_indices}")
+
+    # 4. AVERAGE the selected models
+    selected_weights = [weights_list[i] for i in best_indices]
+    
+    # Use your existing fed_avg logic on just these selected weights
+    return fed_avg([(w, 1, 0) for w in selected_weights]) 
+    # Note: passing 1 as n_samples assumes equal weighting for selected clients
