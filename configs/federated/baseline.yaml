@@ -21,7 +21,7 @@ client:
   early_stopping_patience: 3  # Keep for safety, but unlikely to trigger with 5 epochs
 
 server:
-  defense: "multi_krum"   # "avg", "median", "trimmed_mean", "krum", "multi_krum"
+  defense: "flame"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
                     # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
 
 data:
