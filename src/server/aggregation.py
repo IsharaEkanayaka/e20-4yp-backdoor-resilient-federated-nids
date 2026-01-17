@@ -111,3 +111,100 @@ def fed_krum(weights_list, n_malicious=1):
     best_client_idx = np.argmin(scores)
     
     return weights_list[best_client_idx]
+
+
+def fed_multi_krum(weights_list, f, m=None):
+    """
+    Multi-Krum: Selects 'm' best clients and averages them.
+    Args:
+        f (int): Number of estimated attackers.
+        m (int): Number of clients to aggregate (Default: n - f)
+    """
+    n_clients = len(weights_list)
+    k = max(1, n_clients - f - 2)
+    
+    # Default m: Select all valid clients we think are honest
+    if m is None:
+        m = n_clients - f
+
+    # 1. Flatten updates (Same as Krum)
+    flat_updates = []
+    for w in weights_list:
+        concat_list = []
+        for key in sorted(w.keys()):
+            concat_list.append(w[key].view(-1).float())
+        flat_updates.append(torch.cat(concat_list))
+        
+    # 2. Pairwise Distances (Same as Krum)
+    scores = []
+    for i in range(n_clients):
+        dists = []
+        for j in range(n_clients):
+            if i == j: continue
+            d = torch.norm(flat_updates[i] - flat_updates[j]).item()
+            dists.append(d)
+        dists.sort()
+        score = sum(dists[:k])
+        scores.append(score)
+        
+    # 3. SELECT TOP 'm' (Lowest scores) - This is the "Multi" part
+    # Returns indices of the smallest 'm' scores
+    best_indices = np.argsort(scores)[:m]
+    
+    print(f"   -> Multi-Krum selected {len(best_indices)} clients: {best_indices}")
+
+    # 4. AVERAGE the selected models
+    selected_weights = [weights_list[i] for i in best_indices]
+    
+    # Use your existing fed_avg logic on just these selected weights
+    return fed_avg([(w, 1, 0) for w in selected_weights]) 
+    # Note: passing 1 as n_samples assumes equal weighting for selected clients
+
+
+def fed_adaptive_clipping(weights_list, global_model_weights):
+
+# FLAME's Adaptive Clipping:
+# 1. Calculate L2 norms of all updates.
+# 2. Set clipping bound S as the MEDIAN of those norms.
+# 3. Scale down any update larger than S.
+
+    import copy
+
+    # 1. Calculate L2 Norms (Magnitude) of updates relative to the global model
+    # FLAME paper uses update difference: W_i - G_{t-1}
+    norms = []
+    diffs = []
+
+    for w in weights_list:
+        diff = {}
+        total_norm_sq = 0.0
+        for key in w.keys():
+            d = w[key] - global_model_weights[key]
+            diff[key] = d
+            total_norm_sq += torch.sum(d ** 2).item()
+        
+        norm = total_norm_sq ** 0.5
+        norms.append(norm)
+        diffs.append(diff)
+    
+    # 2. Determine Clipping Bound S (Median of norms)
+    # This is "Adaptive" because it changes every round based on the data
+    S = np.median(norms)
+    print(f"   ✂️ Adaptive Clipping Bound (S): {S:.4f}")
+
+    # 3. Clip (Scale Down)
+    clipped_weights = []
+    for i, diff in enumerate(diffs):
+        # Scaling factor gamma = S / norm
+        # If norm < S, factor is > 1 (but we cap it at 1.0 to never scale UP)
+        factor = min(1.0, S / norms[i])
+        
+        new_w = copy.deepcopy(global_model_weights)
+        for key in new_w.keys():
+            # W_new = G + (W_local - G) * factor
+            new_w[key] += diff[key] * factor
+            
+        clipped_weights.append(new_w)
+
+    # 4. Average the clipped updates
+    return fed_avg([(w, 1, 0) for w in clipped_weights])

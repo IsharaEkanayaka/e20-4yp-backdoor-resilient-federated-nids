@@ -1,6 +1,7 @@
 import torch
 from sklearn.metrics import f1_score
-from .aggregation import fed_avg, fed_median, fed_trimmed_mean, fed_krum
+from .aggregation import fed_avg, fed_median, fed_trimmed_mean, fed_krum, fed_multi_krum, fed_adaptive_clipping
+from src.server.clustering import fl_trust_clustering
 
 class Server:
     def __init__(self, global_model, test_loader, device='cpu', defense='avg', expected_malicious=0, num_classes=10):
@@ -18,8 +19,11 @@ class Server:
         """
         # Separate weights from the tuples for the robust functions
         weights_list = [update[0] for update in client_updates]
+
+        # Define n_clients HERE (Top Level)
+        n_clients = len(weights_list)
         
-        print(f"🛡️ Aggregating updates using defense: '{self.defense}'")
+        print(f"🛡️ Aggregating {n_clients} updates using defense: '{self.defense}'")
 
         if self.defense == "avg":
             new_weights = fed_avg(client_updates)
@@ -41,6 +45,22 @@ class Server:
             # Ensure f >= 1 if Krum is selected, otherwise it crashes
             f = max(1, self.expected_malicious)
             new_weights = fed_krum(weights_list, n_malicious=f)
+
+        elif self.defense == "multi_krum":
+            # Multi-Krum: Selects top 'm' clients and averages them
+            # Heuristic: Assume <30% attackers (f), select the remaining 70% (m)
+            f = max(1, int(n_clients * 0.45))
+            m = n_clients - f
+            new_weights = fed_multi_krum(weights_list, f=f, m=m)
+
+        elif self.defense == "flame":
+                # 1. CLUSTERING (Filter out the "Bad Direction")
+                # This rejects the malicious clients because their vector angles are wrong.
+                filtered_weights = fl_trust_clustering(weights_list)
+
+                # 2. ADAPTIVE CLIPPING (Filter out the "Bad Scale")
+                # This ensures any remaining outliers are shrunk to the median size.
+                new_weights = fed_adaptive_clipping(filtered_weights, self.global_model.state_dict())
         
         else:
             print(f"⚠️ Unknown defense '{self.defense}', falling back to FedAvg.")
