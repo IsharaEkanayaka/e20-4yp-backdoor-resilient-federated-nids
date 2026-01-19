@@ -2,14 +2,14 @@ defaults:
   - _self_
 
 simulation:
-  rounds: 15 
+  rounds: 20
   n_clients: 10
   fraction: 1.0
   partition_method: "iid"
   alpha: 0.5
 
 client:
-  epochs: 5  # FL: Use 3-5 local epochs per round (not 30!)
+  epochs: 1  # FL: Use 3-5 local epochs per round (not 30!)
   lr: 0.001  # M12: Lower learning rate for Adam
   batch_size: 512  # M12: Standard batch size
   device: "cuda"
@@ -23,6 +23,11 @@ client:
 server:
   defense: "flame"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
                     # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
+  
+  # Privacy Parameters for FLAME (only for flame)
+  privacy:
+    epsilon: 1500.0   # Controls noise strength (Lower = More Noise). Paper suggests ~300-4000. ( The FLAME paper uses unusually high epsilon$ values (e.g., 300-4000) because their goal is Backdoor Removal, 
+    delta: 1e-5      # Standard DP parameter (usually < 1/n)    |                                        |--> A lower epsilon (more noise) gives better security but hurts accuracy.)
 
 data:
   path: "data/unsw-nb15/processed/train_pool.pt"

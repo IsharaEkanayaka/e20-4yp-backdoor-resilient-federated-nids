@@ -4,7 +4,8 @@ from .aggregation import fed_avg, fed_median, fed_trimmed_mean, fed_krum, fed_mu
 from src.server.clustering import fl_trust_clustering
 
 class Server:
-    def __init__(self, global_model, test_loader, device='cpu', defense='avg', expected_malicious=0, num_classes=10):
+    def __init__(self, config, global_model, test_loader, device='cpu', defense='avg', expected_malicious=0, num_classes=10):
+        self.config = config
         self.global_model = global_model.to(device)
         self.test_loader = test_loader
         self.device = device
@@ -52,15 +53,33 @@ class Server:
             f = max(1, int(n_clients * 0.45))
             m = n_clients - f
             new_weights = fed_multi_krum(weights_list, f=f, m=m)
+            
+##########################################################################################
+        #                            FLAME
 
         elif self.defense == "flame":
-                # 1. CLUSTERING (Filter out the "Bad Direction")
-                # This rejects the malicious clients because their vector angles are wrong.
-                filtered_weights = fl_trust_clustering(weights_list)
-
-                # 2. ADAPTIVE CLIPPING (Filter out the "Bad Scale")
-                # This ensures any remaining outliers are shrunk to the median size.
-                new_weights = fed_adaptive_clipping(filtered_weights, self.global_model.state_dict())
+            # 1. CLUSTERING (Filter out bad directions)
+            filtered_weights = fl_trust_clustering(weights_list)
+            
+            # 2. ADAPTIVE CLIPPING + NOISING (Filter scale + Add privacy)
+            # We pass the privacy config section here
+            privacy_cfg = self.config.server.get('privacy', None)
+            
+            new_weights = fed_adaptive_clipping(
+                filtered_weights, 
+                self.global_model.state_dict(),
+                privacy_cfg=privacy_cfg
+            )
+                    
+        elif self.defense == "adaptive_clipping":
+             # You can also add noise to the standalone clipping defense if you want
+             privacy_cfg = self.config.server.get('privacy', None)
+             new_weights = fed_adaptive_clipping(
+                 weights_list, 
+                 self.global_model.state_dict(),
+                 privacy_cfg=privacy_cfg
+             )
+###########################################################################################
         
         else:
             print(f"⚠️ Unknown defense '{self.defense}', falling back to FedAvg.")
