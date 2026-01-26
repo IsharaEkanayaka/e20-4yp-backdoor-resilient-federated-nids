@@ -2,7 +2,7 @@ defaults:
   - _self_
 
 simulation:
-  rounds: 20
+  rounds: 15
   n_clients: 10
   fraction: 1.0
   partition_method: "iid"
@@ -21,7 +21,7 @@ client:
   early_stopping_patience: 3  # Keep for safety, but unlikely to trigger with 5 epochs
 
 server:
-  defense: "flame"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
+  defense: "krum"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
                     # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
   
   # Privacy Parameters for FLAME (only for flame)
@@ -32,6 +32,16 @@ server:
 data:
   path: "data/unsw-nb15/processed/train_pool.pt"
   classification_mode: "binary"  # Options: "binary" (Normal vs Attack), "multiclass" (10 classes)
+
+# 🧠 UMAP EMBEDDING ANALYSIS (Post-training visualization)
+umap:
+  enabled: true                           # Set to true to enable UMAP analysis after training ("true" or "false")
+  max_points: 2000                         # Dataset size for UMAP visualization (FAST: 5000, STANDARD: 50000, DETAILED: 100000)
+  output_dir: "outputs/umap_analysis"      # Where to save UMAP visualizations
+  compare_with_raw_features: false         # Create side-by-side comparison with raw features (disable for speed)
+  n_neighbors: 15                          # UMAP parameter (higher = more global structure)
+  min_dist: 0.1                            # UMAP parameter (lower = tighter clusters)
+  random_state: null                       # null = parallel processing (faster), 42 = reproducible (slower)
 
 # W&B Configuration (tags auto-generated from config)
 tags: []
