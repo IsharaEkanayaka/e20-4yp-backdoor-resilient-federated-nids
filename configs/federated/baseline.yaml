@@ -2,14 +2,14 @@ defaults:
   - _self_
 
 simulation:
-  rounds: 15 
+  rounds: 15
   n_clients: 10
   fraction: 1.0
   partition_method: "iid"
   alpha: 0.5
 
 client:
-  epochs: 5  # FL: Use 3-5 local epochs per round (not 30!)
+  epochs: 1  # FL: Use 3-5 local epochs per round (not 30!)
   lr: 0.001  # M12: Lower learning rate for Adam
   batch_size: 512  # M12: Standard batch size
   device: "cuda"
@@ -21,12 +21,27 @@ client:
   early_stopping_patience: 3  # Keep for safety, but unlikely to trigger with 5 epochs
 
 server:
-  defense: "flame"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
+  defense: "krum"   # "avg", "median", "trimmed_mean", "krum", "multi_krum", , flame <-- FLAME defence
                     # if you use "krum" --> update the # of malicious clients in server.py, default value = 1
+  
+  # Privacy Parameters for FLAME (only for flame)
+  privacy:
+    epsilon: 1500.0   # Controls noise strength (Lower = More Noise). Paper suggests ~300-4000. ( The FLAME paper uses unusually high epsilon$ values (e.g., 300-4000) because their goal is Backdoor Removal, 
+    delta: 1e-5      # Standard DP parameter (usually < 1/n)    |                                        |--> A lower epsilon (more noise) gives better security but hurts accuracy.)
 
 data:
   path: "data/unsw-nb15/processed/train_pool.pt"
   classification_mode: "binary"  # Options: "binary" (Normal vs Attack), "multiclass" (10 classes)
+
+# 🧠 UMAP EMBEDDING ANALYSIS (Post-training visualization)
+umap:
+  enabled: true                           # Set to true to enable UMAP analysis after training ("true" or "false")
+  max_points: 2000                         # Dataset size for UMAP visualization (FAST: 5000, STANDARD: 50000, DETAILED: 100000)
+  output_dir: "outputs/umap_analysis"      # Where to save UMAP visualizations
+  compare_with_raw_features: false         # Create side-by-side comparison with raw features (disable for speed)
+  n_neighbors: 15                          # UMAP parameter (higher = more global structure)
+  min_dist: 0.1                            # UMAP parameter (lower = tighter clusters)
+  random_state: null                       # null = parallel processing (faster), 42 = reproducible (slower)
 
 # W&B Configuration (tags auto-generated from config)
 tags: []

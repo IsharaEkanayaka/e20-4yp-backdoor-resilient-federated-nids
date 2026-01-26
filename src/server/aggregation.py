@@ -161,24 +161,24 @@ def fed_multi_krum(weights_list, f, m=None):
     # Note: passing 1 as n_samples assumes equal weighting for selected clients
 
 
-def fed_adaptive_clipping(weights_list, global_model_weights):
-
-# FLAME's Adaptive Clipping:
-# 1. Calculate L2 norms of all updates.
-# 2. Set clipping bound S as the MEDIAN of those norms.
-# 3. Scale down any update larger than S.
-
-    import copy
-
-    # 1. Calculate L2 Norms (Magnitude) of updates relative to the global model
-    # FLAME paper uses update difference: W_i - G_{t-1}
+def fed_adaptive_clipping(weights_list, global_model_weights, privacy_cfg=None):
+    """
+    FLAME Part 2 & 3: Adaptive Clipping + Adaptive Noising (DP).
+    
+    Args:
+        weights_list: List of client updates (state_dicts)
+        global_model_weights: The previous global model (state_dict)
+        privacy_cfg: Dict containing 'epsilon' and 'delta' from config
+    """
+    # 1. Calculate L2 Norms of updates (Difference from Global)
     norms = []
     diffs = []
-
+    
     for w in weights_list:
         diff = {}
         total_norm_sq = 0.0
         for key in w.keys():
+            # Calculate difference: W_i - G_{t-1}
             d = w[key] - global_model_weights[key]
             diff[key] = d
             total_norm_sq += torch.sum(d ** 2).item()
@@ -186,25 +186,42 @@ def fed_adaptive_clipping(weights_list, global_model_weights):
         norm = total_norm_sq ** 0.5
         norms.append(norm)
         diffs.append(diff)
-    
-    # 2. Determine Clipping Bound S (Median of norms)
-    # This is "Adaptive" because it changes every round based on the data
+        
+    # 2. Determine Clipping Bound S (Median of norms) [cite: 301]
     S = np.median(norms)
-    print(f"   ✂️ Adaptive Clipping Bound (S): {S:.4f}")
+    # print(f"   ✂️ Adaptive Clipping Bound (S): {S:.4f}")
 
-    # 3. Clip (Scale Down)
+    # 3. Clip (Scale Down) [cite: 303]
     clipped_weights = []
     for i, diff in enumerate(diffs):
         # Scaling factor gamma = S / norm
-        # If norm < S, factor is > 1 (but we cap it at 1.0 to never scale UP)
-        factor = min(1.0, S / norms[i])
+        factor = min(1.0, S / (norms[i] + 1e-9)) # Add epsilon to avoid div/0
         
+        # Apply scaling: W_new = G + (W_local - G) * factor
         new_w = copy.deepcopy(global_model_weights)
         for key in new_w.keys():
-            # W_new = G + (W_local - G) * factor
             new_w[key] += diff[key] * factor
             
         clipped_weights.append(new_w)
 
-    # 4. Average the clipped updates
-    return fed_avg([(w, 1, 0) for w in clipped_weights])
+    # 4. Aggregate (Average) the clipped models
+    avg_model = fed_avg([(w, 1, 0) for w in clipped_weights])
+    
+    # 5. Add Adaptive Noise (Differential Privacy) [cite: 315, 325]
+    if privacy_cfg:
+        epsilon = privacy_cfg.get('epsilon', 300.0)
+        delta = privacy_cfg.get('delta', 1e-5)
+        
+        # Calculate Noise Scale (Sigma) based on Clipping Bound S
+        # Formula from FLAME Theorem 1 (Eq 7)
+        lambda_val = (1.0 / epsilon) * np.sqrt(2 * np.log(1.25 / delta))
+        sigma = lambda_val * S
+        
+        print(f"   🤫 Adding DP Noise: sigma={sigma:.6f} (epsilon={epsilon})")
+        
+        # Inject Gaussian Noise to the Aggregated Model
+        for key in avg_model.keys():
+            noise = torch.normal(mean=0.0, std=sigma, size=avg_model[key].shape).to(avg_model[key].device)
+            avg_model[key] += noise
+
+    return avg_model
