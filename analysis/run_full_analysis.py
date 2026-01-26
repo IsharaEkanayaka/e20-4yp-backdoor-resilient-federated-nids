@@ -47,12 +47,25 @@ SCENARIOS = [
     },
     {
         "name": "04_Attack_Krum_Collusion",
-        "plot_title": "Figure_C_Krum_Collapse",
+        "plot_title": "Figure_D_Krum_Collapse",
         "description": "State: Compromised (Collusion)",
         "overrides": [
             "attack.type=backdoor",
             "attack.aggressive=true",
             "server.defense=krum",
+            "attack.num_malicious_clients=4",
+            "simulation.rounds=15",
+            "+group=attack_krum_analysis"
+        ]
+    },
+    {
+        "name": "05_Attack_Flame_Collusion",
+        "plot_title": "Figure_E_Flame_Defend",
+        "description": "State: Compromised (Collusion)",
+        "overrides": [
+            "attack.type=backdoor",
+            "attack.aggressive=true",
+            "server.defense=flame",
             "attack.num_malicious_clients=4",
             "simulation.rounds=15",
             "+group=attack_krum_analysis"
