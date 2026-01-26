@@ -1,7 +1,0 @@
-Could not override 'group'.
-To append to your config use +group=attack_fedavg_analysis
-Key 'group' is not in struct
-    full_key: group
-    object_type=dict
-
-Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
